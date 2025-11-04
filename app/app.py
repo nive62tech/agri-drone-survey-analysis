@@ -1,86 +1,67 @@
-# --- 🌾 AGRIDRONE SURVEY DASHBOARD ---
+# 🌾 AGRI-DRONE SURVEY DASHBOARD (Phase 3)
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
 
-# --- ⚙️ PAGE SETTINGS ---
+# --- PAGE SETUP ---
 st.set_page_config(page_title="AgriDrone Survey Dashboard", layout="wide")
 
-# --- 📂 DEFINE PATHS ---
-base_path = os.path.dirname(os.path.dirname(__file__))  # go up one folder
-results_path = os.path.join(base_path, "results")
-
-# --- 🧾 LOAD DATA ---
-summary_file = os.path.join(results_path, "summary_statistics.csv")
-
-if os.path.exists(summary_file):
-    df = pd.read_csv(summary_file)
-else:
-    st.error("❌ 'summary_statistics.csv' not found in results folder. Run EDA first.")
-    st.stop()
-
-# --- 🧭 SIDEBAR FILTERS ---
-st.sidebar.header("🔍 Filters")
-sections = ['A', 'B', 'C', 'D', 'E']
-selected_section = st.sidebar.selectbox("Select Section", sections)
-st.sidebar.markdown("---")
-
 st.title("🌾 AgriDrone Farmer Survey Dashboard")
-st.write("Explore farmer survey responses interactively across Sections A–E.")
+st.markdown("Explore interactive visualizations for all 5 sections (A–E)")
 
-# --- 🗂️ SECTION TABS ---
-tabA, tabB, tabC, tabD, tabE = st.tabs([
-    "Section A", "Section B", "Section C", "Section D", "Section E"
-])
+# --- PATH CONFIGURATION ---
+base_dir = os.path.dirname(os.path.dirname(__file__))  # go up one level from app/
+results_dir = os.path.join(base_dir, "results")
 
-# --- 🔹 FUNCTION TO DISPLAY CHARTS FOR EACH SECTION ---
-def render_section(section_name):
-    st.subheader(f"📘 Section {section_name} Overview")
-
-    # Filter by section if applicable
-    if "section" in df.columns:
-        filtered_df = df[df["section"].astype(str).str.contains(section_name, case=False, na=False)]
+# --- LOAD CSV HELPER ---
+def load_csv(filename):
+    file_path = os.path.join(results_dir, filename)
+    if os.path.exists(file_path):
+        df = pd.read_csv(file_path)
+        return df
     else:
-        filtered_df = df.copy()
+        st.warning(f"⚠️ {filename} not found in /results folder.")
+        return None
 
-    if filtered_df.empty:
-        st.warning(f"No data found for Section {section_name}")
-        return
+# --- SIDEBAR ---
+st.sidebar.header("🔍 Filters")
+sections = ["A - General Info", "B - Constraints", "C - Drone Awareness", "D - Customisation Needs", "E - Support Training"]
+selected_section = st.sidebar.selectbox("Select Section", sections)
 
-    # Example 1 — Distribution of responses
-    fig1 = px.histogram(
-        filtered_df,
-        x="section",
-        title=f"Response Distribution — Section {section_name}",
-        color="section",
-        template="plotly_white"
-    )
-    st.plotly_chart(fig1, use_container_width=True)
+# --- MAP SECTION TO FILE ---
+section_map = {
+    "A - General Info": "f1_value_counts.csv",
+    "B - Constraints": "f2_value_counts.csv",
+    "C - Drone Awareness": "f3_value_counts.csv",
+    "D - Customisation Needs": "f4_value_counts.csv",
+    "E - Support Training": "f5_value_counts.csv"
+}
 
-    # Example 2 — Example question visualization (replace f1 with any question column)
-    question_cols = [c for c in filtered_df.columns if c.startswith("f")]
-    if question_cols:
-        first_col = question_cols[0]
-        fig2 = px.bar(
-            filtered_df,
-            x=first_col,
-            color="section",
-            title=f"Example Question ({first_col}) — Section {section_name}",
-            template="plotly_white"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+filename = section_map[selected_section]
+
+# --- LOAD SELECTED SECTION ---
+df = load_csv(filename)
+
+# --- VISUALIZATION ---
+if df is not None:
+    st.subheader(f"📊 {selected_section} Responses")
+
+    # If dataframe has two columns, assume Response/Count format
+    if df.shape[1] == 2:
+        df.columns = ["Response", "Count"]
+        fig = px.bar(df.head(15), x="Response", y="Count",
+                     color="Response", title=f"Top Responses – {selected_section}",
+                     template="plotly_white")
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("ℹ️ No question columns (like f1, f2, etc.) found in the dataset yet.")
+        st.dataframe(df.head())
 
-# --- 🖼️ SHOW EACH SECTION TAB ---
-with tabA: render_section("A")
-with tabB: render_section("B")
-with tabC: render_section("C")
-with tabD: render_section("D")
-with tabE: render_section("E")
+    st.caption("🔸 Data source: results/" + filename)
+else:
+    st.info("Please make sure all f1–f5 CSV files are generated inside /results folder.")
 
-# --- ✅ FOOTER ---
+# --- FOOTER ---
 st.markdown("---")
-st.caption("Developed as part of AgriDrone Survey Analysis • Phase 3 Dashboard")
+st.caption("Developed as part of **Phase 3 – Streamlit Dashboard** for AgriDrone Survey Analysis Project.")
